@@ -44,9 +44,8 @@ check this result before mapping the framebuffer. MEM_GETTANDY (ioctl 14)
 and its opt-in original-Tandy reservation are retained independently.
 
 The early bootloader refuses BIOS memory reports below 640 KB, displaying
-640K and halting before relocation. The 128 KB rejection was observed;
-512 KB reached the loader but its captures remained black, including a
-slower-cycle retry; visibility of its rejection message is unconfirmed.
+640K and halting before relocation. The 128 KB and 512 KB rejection messages were both confirmed in captured
+emulator displays.
 The source guard is not evidence that every untested configuration works.
 
 Evaluation so far

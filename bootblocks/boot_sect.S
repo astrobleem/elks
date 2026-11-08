@@ -97,6 +97,24 @@ entry1:
 	mov $MEMTOPSEG,%ax
 #else
 	int $0x12   // in KB
+#ifdef CONFIG_HW_PCJR
+    // Refuse before relocating: a 128K PCjr would relocate over the IVT.
+    cmp $640,%ax
+    jae 1f
+    mov $0x0e36,%ax
+    xor %bx,%bx
+    int $0x10
+    mov $'4',%al
+    int $0x10
+    mov $'0',%al
+    int $0x10
+    mov $'K',%al
+    int $0x10
+    cli
+2:  hlt
+    jmp 2b
+1:
+#endif
 	mov $6,%cl  // to paragraphs
 	shl %cl,%ax
 #endif

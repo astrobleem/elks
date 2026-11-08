@@ -25,7 +25,11 @@ static byte_t sb_block [BLOCK_SIZE];  // super block block buffer
 static char linux[] = "/linux";
 static int i_now;
 static int i_boot;
+#ifdef CONFIG_HW_PCJR
+static unsigned long loadaddr;
+#else
 static unsigned loadaddr;
+#endif
 static int ib_first;                 // inode first block
 
 static byte_t i_block [BLOCK_SIZE];  // inode block buffer
@@ -86,15 +90,18 @@ void load_prog ()
 		if (!strcmp ((char *)(d_dir + 2 + d), linux+1)) {
 			i_boot = i_now = (*(int *)(d_dir + d)) - 1;
 			if (i_boot == -1) continue;
+			/* Keep the >64K loader within the 512-byte payload. */
+#ifndef CONFIG_HW_PCJR
 			puts (linux);
-			loadaddr = LOADSEG << 4;
+#endif
+			loadaddr = (unsigned long)LOADSEG << 4;
 			load_file();
 			continue;
 		}
 		if (!strcmp ((char *)(d_dir + 2 + d), "bootopts")) {
 			i_now = (*(int *)(d_dir + d)) - 1;
 			if (i_now != -1) {
-				loadaddr = OPTSEG << 4;
+				loadaddr = (unsigned long)OPTSEG << 4;
 				//puts("opts ");
 				load_file();
 			}
@@ -168,7 +175,7 @@ static void load_zone (int level, zone_nr * z_start, zone_nr * z_end)
 	for (zone_nr * z = z_start; z < z_end; z++) {
 		if (level == 0) {
 			if (i_now) {
-				long lin_addr = loadaddr + f_pos;
+				unsigned long lin_addr = loadaddr + f_pos;
 				disk_read_blk (*z, 2, (byte_t *) (unsigned) lin_addr, (unsigned) (lin_addr >> 4) & 0xf000);
 			} else {
 				if (!f_pos) disk_read_blk (*z, 2, d_dir /*+ f_pos*/, seg_data ());

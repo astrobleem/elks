@@ -136,8 +136,10 @@ void INITPROC irq_init(void)
     irq_action[IDX_DIVZERO] = div0_handler;     /* INT 0 divide by 0/divide overflow */
     int_handler_add(IDX_DIVZERO, 0x00, _irqit);
 
+#ifndef CONFIG_HW_PCJR
     irq_action[IDX_NMI] = nmi_handler;          /* INT 2 non-maskable interrupt */
     int_handler_add(IDX_NMI, 0x02, _irqit);
+#endif
 #endif
 
 #if defined(CONFIG_ARCH_NECV25)

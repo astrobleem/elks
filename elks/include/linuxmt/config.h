@@ -161,10 +161,25 @@
 #define CAP_ALL         0xFF    /* all capabilities if PC/AT only */
 
 /* Don't touch these, unless you really know what you are doing. */
+#ifdef CONFIG_HW_PCJR
+#if !defined(CONFIG_ARCH_IBMPC) || defined(CONFIG_ROMCODE) || \
+    !defined(CONFIG_CONSOLE_BIOS) || defined(CONFIG_KEYBOARD_SCANCODE) || \
+    !defined(CONFIG_TIMER_INT1C) || defined(CONFIG_BLK_DEV_FD) || CONFIG_CONSOLE_MAX != 1
+#error PCjr requires IBMPC RAM boot, BIOS console and keyboard, INT1C timer, one console and no direct floppy
+#endif
+#define DEF_INITSEG     0x2000
+#define DEF_SYSSEG      0x5000
+#else
 #define DEF_INITSEG     0x0100  /* initial Image load address by boot code */
 #define DEF_SYSSEG      0x1400  /* address setup then copies kernel to, then SEG_SYSSEG */
+#endif
 #define DEF_SETUPSEG    DEF_INITSEG + 0x20
+#ifdef CONFIG_HW_PCJR
+#define DEF_SYSMAX      0x2000  /* keep initialized final image below staging */
+#else
 #define DEF_SYSMAX      0x2F00  /* maximum system size (=.text+.fartext+.data) */
+
+#endif
 
 /* Segment DMASEG up to DMASEGEND is used for the XMS/DMA bounce buffer and track cache.
  * Following DMASEGEND is the kernel code at SEG_SYSSEG (or kernel data for ROM configs).
@@ -221,7 +236,11 @@
 #define SEG_LOADALL     0x80        /* LOADALL buffer from 0x800-0x865 on 80286 CPU */
 #define SEG_INITSEG     0x90        /* 0x200 bytes setup data */
 #define SEG_DMASEG      0xB0        /* start of floppy sector buffer */
+#ifdef CONFIG_HW_PCJR
+#define SEG_SYSSEG      0x2400
+#else
 #define SEG_SYSSEG      DMASEGEND   /* kernel code segment */
+#endif
 #endif
 
 #ifdef CONFIG_ARCH_PC98

@@ -2,6 +2,7 @@
  * Kernel startup and /bootopts configuration
  */
 #include <linuxmt/config.h>
+#include <linuxmt/mem.h>
 #include <linuxmt/init.h>
 #include <linuxmt/mm.h>
 #include <linuxmt/sched.h>
@@ -37,6 +38,8 @@ struct isa_conf ul0_conf = { ULTRA_IRQ, ULTRA_PORT, ULTRA_RAM, ULTRA_FLAGS };
 struct isa_conf le0_conf = { LANCE_IRQ, LANCE_PORT, 0,      LANCE_FLAGS };
 struct isa_conf mfm_conf = { MFM_IRQ,   MFM_PORT,   0,      MFM_FLAGS };
 struct isa_conf sb_conf =  { SB_IRQ,    SB_PORT,    SB_DMA, SB_FLAGS };
+unsigned int pcjr_video_reserved;
+unsigned int tandy_video_requested, tandy_video_reserved;
 int iga_opts;                   /* CONFIG_CONSOLE_AMSTRAD_IGA iga= options */
 
 /* internal non-driver declarations */
@@ -241,6 +244,18 @@ static void INITPROC early_kernel_init(void)
     /* now able to add umb memory segments */
     for (p = opts.umbseg; p < &opts.umbseg[MAX_UMB]; p++) {
         if (p->base) {
+#ifdef CONFIG_HW_PCJR
+            if (p->base < 0x2400) {
+                printk("PCjr: ignoring low-memory UMB\n");
+                continue;
+            }
+#endif
+            /* Do not permit a manual UMB range to re-add reserved video RAM. */
+            if (tandy_video_reserved && p->base < 0xa000 &&
+                (unsigned long)p->base + p->len > 0x9800) {
+                printk("Tandy video: ignoring overlapping UMB\n");
+                continue;
+            }
             debug("umb segment from %x to %x\n", p->base, p->base + p->len);
             seg_add(p->base, p->base + p->len);
             umbtotal += p->len;
@@ -698,6 +713,10 @@ static int INITPROC parse_options(void)
         }
         if (!strncmp(line,"iga=",4)) {
             iga_opts = (int)simple_strtol(line+4, 10);
+            continue;
+        }
+        if (!strcmp(line,"tandyvideo=1")) {
+            tandy_video_requested = 1;
             continue;
         }
         if (!strncmp(line,"heap=",5)) {

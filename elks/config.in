@@ -17,6 +17,7 @@ mainmenu_option next_comment
 
 	if [ "$CONFIG_ARCH_IBMPC" = "y" ]; then
 
+		bool 'Expanded 640K PCjr (experimental)' CONFIG_HW_PCJR n
 		bool 'Compaq DeskPro Hardware (fast mode)' CONFIG_HW_COMPAQFAST n
 		bool 'MK-88 Hardware (IRQ 3 keyboard)' CONFIG_HW_MK88 n
 		bool 'i286 protected mode (experimental)' CONFIG_286_PMODE n

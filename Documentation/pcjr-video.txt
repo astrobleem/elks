@@ -1,0 +1,68 @@
+Experimental expanded-PCjr support (ELKS 0.9.2)
+==============================================
+
+This branch targets a PCjr with 640 KB conventional memory, BIOS keyboard
+and BIOS disk I/O. It is source for evaluation, not a hardware-qualified
+release or a bootable-image download. Stock 128 KB PCjr systems are not
+supported. The separate tandy-video-v0.9.2 branch and master are unchanged.
+
+Build in a separate checkout using the prerequisites/toolchain in BUILD.md.
+With an existing built ELKS libc and ia16 toolchain, use the normal host
+build dependencies (including m4). From the checkout root:
+
+  cp pcjr-640.config .config
+  export TOPDIR="$PWD"
+  export CROSSDIR=/path/to/ia16-toolchain
+  export PATH="$CROSSDIR/bin:$TOPDIR/elks/tools/bin:$PATH"
+  make kconfig
+  make include/autoconf.h
+  make -C elks clean
+  make kernel
+  make -C bootblocks clean
+  make -C bootblocks minix.bin
+
+The paired outputs are elks/arch/i86/boot/Image and bootblocks/minix.bin.
+A full make all also builds userland and the configured MINIX image, subject
+to the normal BUILD.md prerequisites. Start from a separate clean checkout:
+never mix default and PCjr objects. Do not overwrite a working boot medium.
+The runtime checks used an isolated existing v0.9.2 MINIX image with both
+components replaced and the loader installed using that image's geometry;
+those image-specific geometry values are not universal installation options.
+
+This is not enabled by the Tandy tandyvideo=1 boot option. CONFIG_HW_PCJR
+selects BIOS console/keyboard, INT 1Ch timing, one console, and no direct
+floppy driver. The PCjr BIOS NMI keyboard handler is preserved. The kernel
+and MINIX loader must be rebuilt together: the PCjr load/relocation segments
+are different. Replacing only /linux on a default boot image is not enough.
+FAT boot and other boot methods have not been qualified by this work.
+
+The final kernel starts at segment 2400. Video RAM at physical 18000-1FFFF
+is outside the allocatable kernel memory range; low manual UMB additions
+are rejected. MEM_GETPCJR (ioctl 15 on /dev/kmem) reports segment 1800 only
+when the PCjr build, memory and ROM checks succeed. Display software must
+check this result before mapping the framebuffer. MEM_GETTANDY (ioctl 14)
+and its opt-in original-Tandy reservation are retained independently.
+
+The early bootloader refuses BIOS memory reports below 640 KB, displaying
+640K and halting before relocation. The 128 KB rejection was observed;
+512 KB reached the loader but its captures remained black, including a
+slower-cycle retry; visibility of its rejection message is unconfirmed.
+The source guard is not evidence that every untested configuration works.
+
+Evaluation so far
+-----------------
+DOSBox-X 2025.02.01 in PCjr mode with 640 KB booted this kernel, accepted
+native BIOS keyboard input, reported video segment 1800, and ran the
+separate Nano-X launcher and colored Tetris. Ctrl+A returned to mode 03h
+and shell typing worked afterward. This is emulated PCjr evidence only:
+no physical PCjr has been tested. Tetris is taller than the 200-line mode,
+so the bottom of its application display is clipped.
+
+The default/Tandy clean build passed and its default bootloader was
+byte-identical to the original. Renderer host ASan/UBSan checks passed.
+The combined source patch applies to v0.9.2 e7a56a43, not the fork's newer
+master. No NE2K source changes, network fix, ROMs or prebuilt binaries are
+included. There is no automatic installation or modification of boot media.
+
+Graphics are a separate Microwindows/Nano-X component, not included by
+these kernel changes alone. A kernel build is not a complete color desktop.

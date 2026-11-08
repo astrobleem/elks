@@ -1,0 +1,31 @@
+Tandy 1000 video reservation (ELKS 0.9.2)
+=======================================
+
+This experimental branch adds only the kernel memory reservation needed by
+an original-Tandy mode 09h display driver. It does not include that driver,
+a complete desktop, an installer, firmware, or a prebuilt kernel.
+
+Opt in with tandyvideo=1 in /bootopts when using a compatible display driver.
+Leave the option absent for normal operation. Keep a known-working boot disk.
+Build using the normal ELKS 0.9.2 instructions in BUILD.md.
+
+The supported layout is BIOS base memory 624 KB with original-Tandy ROM
+bytes FFFF:000E=FF and FC00:0000=21. Before mm_init, the reservation lowers
+the usable memory end to segment 9800 (608 KB), protecting 98000-9FFFF.
+Reservation is refused if the kernel reaches that boundary. Manual UMB
+ranges that overlap the reserved video RAM are ignored.
+
+MEM_GETTANDY (ioctl 14 on /dev/kmem) returns 0x9800 only if the reservation
+succeeded, and zero otherwise. Applications must check this result before
+using the framebuffer; a machine label alone is not a safety check.
+
+This is based on v0.9.2, not the fork's newer master. The final IBMPC kernel
+cross-build passed with upstream network sources. A host test of the
+allocation logic covered 8192 memory/signature/enable combinations and
+kernel overlap. A previous same-logic revision booted in QEMU and rejected
+unsupported color startup; QEMU is not Tandy rendering validation.
+A real Tandy 1000 EX showed coherent desktop/menu/pointer startup with that
+previous revision and a companion driver. That observation does not qualify
+redraw/exit, other Tandy models, or arbitrary memory configurations.
+The final common-global placement was rebuilt but not boot-tested, and
+non-IBMPC architectures were not built. No network-driver changes are here.

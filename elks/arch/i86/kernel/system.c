@@ -6,6 +6,7 @@
 #include <linuxmt/fs.h> /* for ROOT_DEV */
 #include <linuxmt/heap.h>
 #include <linuxmt/memory.h>
+#include <linuxmt/mem.h>
 #include <linuxmt/debug.h>
 
 #include <arch/segment.h>
@@ -58,6 +59,18 @@ unsigned int INITPROC setup_arch(void)
     debug("endbss %x heap %x kdata size %x\n", endbss, heapsize, (membase-kernel_ds)<<4);
 
     memend = SETUP_MEM_KBYTES << 6;
+#ifdef CONFIG_ARCH_IBMPC
+    /* Original Tandy 1000: mode 09h aliases 98000h-9FFFFh. BIOS 624K
+     * reserves only its upper half. Reserve the rest BEFORE mm_init. */
+    if (tandy_video_requested) {
+        if (SETUP_MEM_KBYTES == 624 && peekb(0x000e,0xffff) == 0xff &&
+            peekb(0,0xfc00) == 0x21 && membase < 0x9800) {
+            memend = 0x9800;
+            tandy_video_reserved = 0x9800;
+            printk("Tandy video: 32K reserved at 98000, usable RAM 608K\n");
+        } else printk("Tandy video: unsupported memory layout, color disabled\n");
+    }
+#endif
 
 #if defined(CONFIG_RAMDISK_SEGMENT) && (CONFIG_RAMDISK_SEGMENT > 0)
     if (CONFIG_RAMDISK_SEGMENT <= memend) {

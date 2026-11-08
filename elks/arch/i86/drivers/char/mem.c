@@ -135,6 +135,9 @@ static int kmem_ioctl(struct inode *inode, struct file *file, int cmd, char *arg
     struct mem_usage mu;
 
     switch (cmd) {
+    case MEM_GETTANDY:
+        retword = tandy_video_reserved;
+        break;
     case MEM_GETTASK:
         retword = (unsigned)task;
         break;

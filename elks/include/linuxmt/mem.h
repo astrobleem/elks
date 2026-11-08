@@ -13,6 +13,9 @@
 #define MEM_GETJIFFADDR 11
 #define MEM_GETSEGALL   12
 #define MEM_GETDMSG     13
+#define MEM_GETTANDY    14  /* 0x9800 only when 32K video is boot-reserved */
+
+extern unsigned int tandy_video_requested, tandy_video_reserved;
 
 struct mem_usage {              /* all in Kbytes */
     unsigned int main_free;

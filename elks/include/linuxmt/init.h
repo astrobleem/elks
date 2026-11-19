@@ -75,6 +75,9 @@ extern void          INITPROC pci_cfg_write(unsigned int devfn_reg, unsigned int
 extern void INITPROC lp_init(void);
 extern void INITPROC dsp_init(void);
 extern void INITPROC mem_dev_init(void);
+extern void INITPROC ems_init(void);
+extern void INITPROC ems_exclude(unsigned int base, unsigned int len);
+extern unsigned int ems_port, ems_frame, ems_limit;
 extern void INITPROC meta_init(void);
 extern void INITPROC pty_init(void);
 extern void INITPROC tcpdev_init(void);

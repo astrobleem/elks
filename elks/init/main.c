@@ -241,6 +241,9 @@ static void INITPROC early_kernel_init(void)
     /* now able to add umb memory segments */
     for (p = opts.umbseg; p < &opts.umbseg[MAX_UMB]; p++) {
         if (p->base) {
+#ifdef CONFIG_CHAR_DEV_EMS
+            ems_exclude(p->base, p->len);
+#endif
             debug("umb segment from %x to %x\n", p->base, p->base + p->len);
             seg_add(p->base, p->base + p->len);
             umbtotal += p->len;
@@ -700,6 +703,18 @@ static int INITPROC parse_options(void)
             iga_opts = (int)simple_strtol(line+4, 10);
             continue;
         }
+#ifdef CONFIG_CHAR_DEV_EMS
+        if (!strncmp(line,"ems=",4)) {          /* ems=port,frame[,pages] */
+            char *p = strchr(line+4, ',');
+            if (p) {
+                ems_port = (unsigned int)simple_strtol(line+4, 16);
+                ems_frame = (unsigned int)simple_strtol(p+1, 16);
+                if ((p = strchr(p+1, ',')))
+                    ems_limit = (unsigned int)simple_strtol(p+1, 10);
+            }
+            continue;
+        }
+#endif
         if (!strncmp(line,"heap=",5)) {
 #ifndef CONFIG_286_PMODE
             heapsize = (unsigned int)simple_strtol(line+5, 10);

@@ -10,6 +10,7 @@ KERNEL_LIBS = $(TOPDIR)/elks/arch/i86/lib/lib86.a
 
 PRGS = \
     test_audio \
+    test_ems \
     test_exit \
     test_eth \
     test_float \
@@ -27,6 +28,9 @@ endif
 all: $(PRGS)
 
 test_audio: test_audio.o
+	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
+
+test_ems: test_ems.o
 	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 test_exit: test_exit.o

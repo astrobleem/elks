@@ -16,6 +16,10 @@ void INITPROC chr_dev_init(void)
     dsp_init();
 #endif
 
+#ifdef CONFIG_CHAR_DEV_EMS
+    ems_init();
+#endif
+
 #ifdef CONFIG_INET
     tcpdev_init();
 #endif

@@ -42,5 +42,10 @@ mainmenu_option next_comment
 
 	if [ "$CONFIG_ARCH_IBMPC" = "y" ]; then
 		bool 'Sound Blaster /dev/dsp driver'	CONFIG_CHAR_DEV_DSP	  n
+		if [ "$CONFIG_286_PMODE" != "y" ]; then
+			bool 'Lo-tech/PicoMEM EMS storage /dev/ems'	CONFIG_CHAR_DEV_EMS	  n
+		else
+			define_bool CONFIG_CHAR_DEV_EMS n
+		fi
 	fi
 endmenu

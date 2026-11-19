@@ -38,6 +38,7 @@ include $(BASEDIR)/Makefile-rules
 OBJS  = init.o ntty.o
 OBJS += pty.o                               # CONFIG_PSEUDO_TTY
 OBJS += mem.o                               # CONFIG_CHAR_DEV_MEM
+OBJS += ems.o                               # CONFIG_CHAR_DEV_EMS
 OBJS += lp.o                                # CONFIG_CHAR_DEV_LP
 OBJS += eth.o                               # CONFIG_ETH
 OBJS += tcpdev.o                            # CONFIG_INET

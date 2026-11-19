@@ -1,0 +1,67 @@
+/dev/ems: bounded-copy storage in Lo-tech style expanded memory
+===============================================================
+
+CONFIG_CHAR_DEV_EMS (Character device drivers, default n) lets one program
+at a time keep data in a Lo-tech 2MB EMS board or a register-compatible
+emulation such as the PicoMEM's: four 16K windows in a 64K page frame, one
+8-bit page register per window at four consecutive I/O ports.
+This driver is for real-mode IBM PC builds, not the experimental 286
+protected-mode kernel.
+
+It is storage, not memory. The page frame is never mapped into a process and
+no DOS expanded-memory manager (INT 67h, PMEMM, LTEMM) is used or needed.
+
+Enabling
+--------
+Add one line to /bootopts naming the board as it is jumpered or configured:
+
+    ems=0x268,0xE000          port, page frame segment
+    ems=0x268,0xD000,64       optionally use at most 64 pages (1MB)
+
+and create the node if the image lacks it:  mknod /dev/ems c 7 0
+
+Without the line the driver touches no port and no memory. With it, boot
+prints either "ems: port 268 frame e000, 128 pages (2048K)" or
+"ems: disabled, <reason>". It is refused unless all of these hold:
+
+  - the port is 260, 264, 268, 26C (Lo-tech) or 288, 298, 2A8 (PicoMEM);
+  - the frame is C000-E000 on a 16K boundary, so its 64K lie above video
+    memory (including the Tandy 9800 reservation) and below F000;
+  - no umb= range overlaps the frame;
+  - no option ROM overlaps the frame, including one starting before it;
+  - if a PicoMEM BIOS ROM is found (by reading ROM headers), it reports the
+    same port and frame through INT 13h AX=6001h DX=1234h. AX=6000h is never
+    issued because that function reinstalls the PicoMEM IRQ vectors. A
+    direct-disk-only kernel cannot make this query and refuses the PicoMEM
+    path rather than guessing; native Lo-tech boards do not need the call;
+  - window 0 really switches between two pages (the words used are restored);
+  - at least two distinct pages exist. Pages are counted by tagging each one,
+    which overwrites the first four bytes of every page at boot.
+
+Interface (linuxmt/ems.h)
+-------------------------
+open("/dev/ems")        EBUSY while another open exists; ENODEV if disabled
+EMS_GETINFO             pages, free pages, frame, port
+EMS_ALLOC               contiguous pages in, handle out; ENOMEM, ENFILE
+EMS_FREE                EBADF for a handle that is not allocated
+EMS_READ, EMS_WRITE     copy count bytes at a byte offset within a handle to
+                        or from a buffer in the caller's data segment; the
+                        range is checked first (EINVAL, EBADF, EFAULT) and a
+                        copy may span page boundaries
+close or process death  frees every handle
+
+What it does and does not guarantee
+-----------------------------------
+Each copy writes the page register itself and finishes inside one system
+call. ELKS does not preempt system calls and no interrupt handler uses the
+frame, so nothing depends on a mapping surviving a schedule or an interrupt.
+Only window 0 is used; the other three windows are left alone.
+
+An 8088 has no memory protection. A program writing through /dev/mem or
+/dev/port, or kernel code poking the frame or the page registers, can still
+corrupt stored pages. Page contents do not survive a reboot.
+
+Checks
+------
+elkscmd/test/other/test_ems_host.c   driver logic on the build host
+elkscmd/test/other/test_ems          native: run after booting with ems=

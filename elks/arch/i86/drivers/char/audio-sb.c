@@ -58,6 +58,14 @@
 #include <arch/dma.h>
 #include <arch/segment.h>
 #include <arch/divmod.h>
+#ifdef CONFIG_KMOD_DSP
+#include <kmodchar.h>
+#define SB_SETUP FARPROC
+static module_entry_t sb_module_io;
+static unsigned char sb_module_fops_ready;
+#else
+#define SB_SETUP INITPROC
+#endif
 
 /*
  * All port access goes through the inb_p/outb_p bus-recovery forms.  Slow ISA
@@ -260,6 +268,7 @@ static int FARPROC dsp_read_byte(unsigned char *value)
     return -EIO;
 }
 
+#ifndef CONFIG_KMOD_DSP
 static int INITPROC sb_reset(void)
 {
     int i;
@@ -277,7 +286,9 @@ static int INITPROC sb_reset(void)
     return -ENODEV;
 }
 
-static int INITPROC sb_read_dsp_version(void)
+#endif
+
+static int SB_SETUP sb_read_dsp_version(void)
 {
     if (dsp_cmd(DSP_GET_VERSION) < 0)
         return -EIO;
@@ -290,7 +301,7 @@ static int INITPROC sb_read_dsp_version(void)
     return 0;
 }
 
-static void INITPROC sb_dma_cache(void)
+static void SB_SETUP sb_dma_cache(void)
 {
     if (sb_dma == 1) {
         sb_dma_addr_port = DMA_ADDR_1;
@@ -310,7 +321,7 @@ static void INITPROC sb_dma_cache(void)
  * way to get a physical address out of a segment_s: seg->base is a selector in
  * protected mode and shifting it left by 4 would point at nothing.
  */
-static void INITPROC sb_dma_addr_cache(addr_t phys)
+static void SB_SETUP sb_dma_addr_cache(addr_t phys)
 {
     sb_bounce_dma_off = (unsigned int)phys;
     sb_bounce_dma_page = (unsigned char)(phys >> 16);
@@ -321,7 +332,7 @@ static void INITPROC sb_dma_addr_cache(addr_t phys)
  * two-block buffer is checked, not one block, so that adding a half-buffer
  * offset to the cached low word can never carry into the page byte.
  */
-static int INITPROC sb_dma_unusable(addr_t phys)
+static int SB_SETUP sb_dma_unusable(addr_t phys)
 {
     if (phys + (addr_t)SB_BUFFER > 0x100000UL)      /* must be DMA-able */
         return 1;
@@ -711,12 +722,17 @@ static void FARPROC sb_mixer_program(void)
  */
 static void sb_dsp_irq_ack(void)
 {
+#ifdef CONFIG_KMOD_DSP
+    if (sb_module_io)
+        (void)sb_module_io(KMOD_SB_ACK);
+#else
     unsigned int n = 0;
 
     while (n < 8 && (inb_p(sb_base + SB_READ_STATUS) & 0x80) != 0) {
         inb_p(sb_base + SB_READ_DATA);
         n++;
     }
+#endif
 }
 
 /*
@@ -1073,7 +1089,7 @@ static struct file_operations sb_dsp_fops = {
  */
 #define SB_ALLOC_TRIES  4
 
-static addr_t INITPROC sb_alloc_bounce(void)
+static addr_t SB_SETUP sb_alloc_bounce(void)
 {
     segment_s *reject[SB_ALLOC_TRIES];
     segment_s *seg;
@@ -1082,12 +1098,21 @@ static addr_t INITPROC sb_alloc_bounce(void)
     int i;
 
     for (i = 0; i < SB_ALLOC_TRIES; i++) {
+        /*
+         * Byte DMA does not require 1 KiB alignment. Use the ordinary
+         * paragraph allocator for runtime layouts, then enforce the real
+         * DMA address limits below. Keep the built-in placement policy.
+         */
         seg = seg_alloc((segext_t)((SB_BUFFER + 15) >> 4),
+#ifdef CONFIG_KMOD_DSP
+                        SEG_FLAG_EXTBUF);
+#else
                         SEG_FLAG_EXTBUF | SEG_FLAG_ALIGN1K);
+#endif
         if (!seg)
             break;
         phys = LINADDR(seg->base, 0);
-        if (!sb_dma_unusable(phys)) {
+        if (seg->size >= ((SB_BUFFER + 15) >> 4) && !sb_dma_unusable(phys)) {
             sb_bounce_seg = seg;
             break;
         }
@@ -1099,6 +1124,7 @@ static addr_t INITPROC sb_alloc_bounce(void)
     return sb_bounce_seg? phys: 0;
 }
 
+#ifndef CONFIG_KMOD_DSP
 void INITPROC dsp_init(void)
 {
     struct isa_conf *conf = &sb_conf;
@@ -1216,3 +1242,116 @@ out_free:
     seg_put(sb_bounce_seg);
     sb_bounce_seg = NULL;
 }
+
+
+#else
+/*
+ * The near VFS and IRQ dispatchers stay resident, as do the shared OSS,
+ * mixer, and DMA state machines. Runtime module text owns the hard-reset
+ * and IRQ-ack port operations; no DMA memory or IRQ is claimed at boot.
+ */
+void INITPROC dsp_init(void)
+{
+    if (register_chrdev(DSP_MAJOR, "dsp", &sb_dsp_fops))
+        printk("sb: unable to register loadable /dev/dsp endpoint\n");
+    else
+        sb_module_fops_ready = 1;
+}
+
+int FARPROC sb_attach_module(module_entry_t entry)
+{
+    addr_t phys;
+    unsigned int flags;
+    int error;
+
+    if (!sb_module_fops_ready || sb_conf.port == -1)
+        return -ENODEV;
+    if (sb_present || sb_module_io)
+        return -EBUSY;
+    /*
+     * First runtime target: one standard route, no MAD16/8237-global
+     * changes, no LPT IRQ changes. The built-in route remains available
+     * for other cards, settings and controllers.
+     */
+    if (sb_conf.port != KMOD_SB_PORT || sb_conf.irq != KMOD_SB_IRQ ||
+        sb_conf.ram != KMOD_SB_DMA || sb_conf.flags)
+        return -EINVAL;
+#ifdef CONFIG_BLK_DEV_MFMHD
+    /* The XT controller's IRQ5 cannot be shared with this route. */
+    if (mfm_conf.port != -1)
+        return -EBUSY;
+#endif
+
+    sb_base = KMOD_SB_PORT;
+    sb_irq_line = KMOD_SB_IRQ;
+    sb_dma = KMOD_SB_DMA;
+    sb_dma_cache();
+    sb_rate_cache(8000);
+    phys = sb_alloc_bounce();
+    if (!phys)
+        return -ENOMEM;
+    sb_dma_addr_cache(phys);
+
+    /*
+     * Reserve IRQ5 before card I/O, but keep its PIC input masked until
+     * the initial DSP handshake finishes. No IRQ can enter an unset
+     * module pointer, even if a previous device left an edge pending.
+     */
+    save_flags(flags);
+    clr_irq();
+    error = request_irq(KMOD_SB_IRQ, sb_interrupt, INT_GENERIC);
+    if (!error)
+        disable_irq(KMOD_SB_IRQ);
+    restore_flags(flags);
+    if (error)
+        goto out_free;
+
+    sb_module_io = entry;
+    if (entry(KMOD_SB_RESET) || sb_read_dsp_version() || !sb_dsp_ver_major) {
+        error = -ENODEV;
+        goto out_irq;
+    }
+    sb_idle();                  /* channel is still masked */
+    sb_ai_active = sb_queued = sb_underrun = 0;
+    sb_dsp_irq_ack();
+    sb_mixer_program();
+    sb_present = 1;
+    enable_irq(KMOD_SB_IRQ);
+    return 0;
+
+out_irq:
+    sb_dsp_irq_ack();
+    free_irq(KMOD_SB_IRQ);
+    sb_module_io = NULL;
+out_free:
+    seg_put(sb_bounce_seg);
+    sb_bounce_seg = NULL;
+    return error;
+}
+
+int FARPROC sb_detach_module(void)
+{
+    unsigned int flags;
+
+    if (!sb_present || !sb_module_io)
+        return -ENODEV;
+    if (sb_opened)
+        return -EBUSY;          /* release completes its drain before clearing */
+    save_flags(flags);
+    clr_irq();
+    disable_irq(KMOD_SB_IRQ);
+    sb_idle();                  /* mask DMA before releasing any memory */
+    sb_present = 0;
+    restore_flags(flags);
+
+    (void)dsp_cmd(DSP_HALT_DMA);
+    (void)dsp_cmd(DSP_DMA_EXIT_AI);
+    (void)dsp_cmd(DSP_SPEAKER_OFF);
+    sb_dsp_irq_ack();            /* service the card before detaching callback */
+    free_irq(KMOD_SB_IRQ);       /* remains masked; no callback reaches text */
+    sb_module_io = NULL;
+    seg_put(sb_bounce_seg);
+    sb_bounce_seg = NULL;
+    return 0;
+}
+#endif

@@ -14,7 +14,9 @@
 #error Built-in LP and the LPT module must not claim the same ports
 #endif
 
-typedef __attribute__((__cdecl__)) __far int (*module_entry_t)(unsigned int);
+#if defined(CONFIG_KMOD_DSP) && defined(CONFIG_CHAR_DEV_DSP)
+#error Built-in and loadable Sound Blaster routes are mutually exclusive
+#endif
 
 /*
  * Only process-context file operations access this state. The single-CPU
@@ -25,6 +27,9 @@ static segment_s *module_text;
 static module_entry_t module_read_byte;
 static unsigned int module_output;
 static unsigned int open_files;
+#ifdef CONFIG_KMOD_DSP
+static unsigned char module_dsp;
+#endif
 #ifdef CONFIG_KMOD_LPT
 static unsigned char module_lpt;
 #endif
@@ -39,6 +44,9 @@ static int load_module(void *user_arg)
     unsigned char header[KMODCHAR_HEADER_LEN];
     unsigned int size, entry, output, bytes;
     segment_s *text;
+#ifdef CONFIG_KMOD_DSP
+    int error;
+#endif
 
     if (module_text)
         return -EBUSY;
@@ -75,6 +83,12 @@ static int load_module(void *user_arg)
             return -ENODEV;
         break;
 #endif
+#ifdef CONFIG_KMOD_DSP
+    case '3':
+        if (output != KMOD_SB_PORT)
+            return -EINVAL;
+        break;
+#endif
     default:
         return -EINVAL;
     }
@@ -87,6 +101,17 @@ static int load_module(void *user_arg)
         (char *)user_arg + sizeof(unsigned int) + KMODCHAR_HEADER_LEN,
         current->t_regs.ds, size);
     module_read_byte = (module_entry_t)_MK_FP(text->base, entry);
+#ifdef CONFIG_KMOD_DSP
+    if (header[3] == '3') {
+        error = sb_attach_module(module_read_byte);
+        if (error) {
+            module_read_byte = NULL;
+            seg_put(text);
+            return error;
+        }
+        module_dsp = 1;
+    }
+#endif
 #ifdef CONFIG_KMOD_LPT
     module_lpt = header[3] == '2';
 #endif
@@ -99,6 +124,9 @@ static int kmodchar_ioctl(struct inode *inode, struct file *file,
     unsigned int cmd, unsigned int arg)
 {
     segment_s *text;
+#ifdef CONFIG_KMOD_DSP
+    int error;
+#endif
 
     if (MINOR(inode->i_rdev) != KMODCHAR_CTL_MINOR)
         return -EINVAL;
@@ -112,6 +140,14 @@ static int kmodchar_ioctl(struct inode *inode, struct file *file,
             return -ENODEV;
         if (open_files)
             return -EBUSY;
+#ifdef CONFIG_KMOD_DSP
+        if (module_dsp) {
+            error = sb_detach_module();
+            if (error)
+                return error;
+            module_dsp = 0;
+        }
+#endif
         text = module_text;
         module_text = NULL;
         module_read_byte = NULL;
@@ -134,6 +170,10 @@ static int kmodchar_open(struct inode *inode, struct file *file)
     case KMODCHAR_DEV_MINOR:
         if (!module_text)
             return -ENODEV;
+#ifdef CONFIG_KMOD_DSP
+        if (module_dsp)
+            return -ENODEV;    /* KMC3 uses /dev/dsp, not /dev/kmoddemo */
+#endif
 #ifdef CONFIG_KMOD_LPT
         if (module_lpt) {
             if (file->f_mode != FMODE_WRITE)

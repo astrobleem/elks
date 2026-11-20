@@ -20,7 +20,7 @@ void INITPROC chr_dev_init(void)
     mem_dev_init();
 #endif
 
-#ifdef CONFIG_CHAR_DEV_DSP
+#if defined(CONFIG_CHAR_DEV_DSP) || defined(CONFIG_KMOD_DSP)
     dsp_init();
 #endif
 

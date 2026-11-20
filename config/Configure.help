@@ -448,6 +448,18 @@ CONFIG_KMOD_LPT
   For the printer test, create /dev/kmoddemo (character 7:1) with write
   permission instead of read-only, then run ./lpttest lpt1.kmc as root.
 
+Loadable Sound Blaster hardware hooks
+CONFIG_KMOD_DSP
+  Keep the shared OSS/playback core resident, but load DSP reset and IRQ
+  acknowledgement code from a trusted KMC3 image. No IRQ or DMA buffer is
+  reserved until load. This prototype supports only sb=5,220,1 and requires
+  the built-in Sound Blaster route to be disabled. No OPTi or global DMA
+  controller reconfiguration is attempted by the loadable path.
+
+  Build sb220.kmc with make -C elkscmd/kmodchar, then use kmodctl to load
+  it before opening /dev/dsp. Unload after the final close has drained
+  playback. kmodctl refuses while the device is still open.
+
 Sound Blaster /dev/dsp driver
 CONFIG_CHAR_DEV_DSP
   Include support for playing sound on a Sound Blaster or compatible ISA

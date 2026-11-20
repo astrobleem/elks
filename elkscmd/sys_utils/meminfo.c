@@ -106,7 +106,7 @@ struct task_struct *find_process(unsigned int seg)
 
 static long total_segsize = 0;
 static char *segtype[] =
-    { "free", "CSEG", "DSEG", "DDAT", "FDAT", "BUF ", "RDSK", "VID " };
+    { "free", "CSEG", "DSEG", "DDAT", "FDAT", "BUF ", "RDSK", "VID ", "KMOD" };
 
 void display_seg(word_t mem)
 {
@@ -128,7 +128,8 @@ void display_seg(word_t mem)
         addr = (unsigned long)segbase << 4;
 
     printf("   %06lx   %04x   %s %8lu %4d  ",
-        addr, segbase, segtype[segflags], segsize << 4, ref_count);
+        addr, segbase, segflags < sizeof(segtype) / sizeof(segtype[0]) ? segtype[segflags] : "????",
+        segsize << 4, ref_count);
     if (segflags == SEG_FLAG_CSEG || segflags == SEG_FLAG_DSEG) {
         if ((t = find_process(mem)) != NULL) {
             process_name(t->t_begstack, t->t_regs.ss);

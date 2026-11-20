@@ -55,7 +55,7 @@ int main(int argc, char **argv)
     check(open(DEV, O_RDONLY) < 0 && errno == ENODEV, "device absent at boot");
 
     v = image.image[3];
-    image.image[3] = '2';
+    image.image[3] = '9';
     check(ioctl(ctl, KMODCHAR_LOAD, &image) < 0 && errno == EINVAL,
         "unrecognized ABI rejected");
     image.image[3] = v;

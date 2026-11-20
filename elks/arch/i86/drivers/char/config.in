@@ -43,6 +43,9 @@ mainmenu_option next_comment
 	if [ "$CONFIG_ARCH_IBMPC" = "y" ]; then
 		if [ "$CONFIG_286_PMODE" != "y" ] && [ "$CONFIG_ROMCODE" != "y" ]; then
 			bool 'Experimental real-mode loadable character module' CONFIG_KMOD_CHAR n
+			if [ "$CONFIG_KMOD_CHAR" = "y" ] && [ "$CONFIG_CHAR_DEV_LP" != "y" ]; then
+				bool 'Allow loadable polling LPT1 printer module' CONFIG_KMOD_LPT n
+			fi
 		fi
 		bool 'Sound Blaster /dev/dsp driver'	CONFIG_CHAR_DEV_DSP	  n
 	fi

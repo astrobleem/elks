@@ -4,12 +4,12 @@ OBJCOPY = ia16-elf-objcopy
 CFLAGS = -I../../include -Os -Wall -Wextra -march=i8086 -melks-libc -mregparmcall
 
 .PHONY: all clean
-all: hello.kmc kmodctl kmodtest
+all: hello.kmc lpt1.kmc kmodctl kmodtest lpttest
 
-hello.o: hello.S
-	$(CC) -march=i8086 -c -o $@ $<
+%.o: %.S ../../include/kmodchar.h
+	$(CC) -I../../include -march=i8086 -c -o $@ $<
 
-hello.kmc: hello.o
+%.kmc: %.o
 	$(OBJCOPY) -O binary -j .text $< $@
 
 kmodctl: kmodctl.c ../../include/kmodchar.h
@@ -18,5 +18,8 @@ kmodctl: kmodctl.c ../../include/kmodchar.h
 kmodtest: kmodtest.c ../../include/kmodchar.h
 	$(CC) $(CFLAGS) -o $@ $<
 
+lpttest: lpttest.c ../../include/kmodchar.h
+	$(CC) $(CFLAGS) -o $@ $<
+
 clean:
-	$(RM) hello.o hello.kmc kmodctl kmodtest
+	$(RM) hello.o hello.kmc lpt1.o lpt1.kmc kmodctl kmodtest lpttest

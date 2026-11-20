@@ -440,6 +440,14 @@ CONFIG_KMOD_CHAR
   To try it manually: ./kmodctl load hello.kmc; cat /dev/kmoddemo;
   ./kmodctl unload. The data device refuses opens when nothing is loaded.
 
+Loadable polling LPT1 printer
+CONFIG_KMOD_LPT
+  Additionally accept KMC2 modules for the BIOS-detected LPT1 at 0x378.
+  This option is off by default and requires disabling the built-in LP
+  driver so both cannot own the same port. No IRQ, DMA or reset is used.
+  For the printer test, create /dev/kmoddemo (character 7:1) with write
+  permission instead of read-only, then run ./lpttest lpt1.kmc as root.
+
 Sound Blaster /dev/dsp driver
 CONFIG_CHAR_DEV_DSP
   Include support for playing sound on a Sound Blaster or compatible ISA

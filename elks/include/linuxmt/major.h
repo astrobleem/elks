@@ -42,7 +42,7 @@
 #define TTY_MAJOR         4
 #define DSP_MAJOR         5  /* Sound Blaster /dev/dsp, audio-sb.c */
 #define LP_MAJOR          6
-                             /* 7 unused*/
+#define KMOD_CHAR_MAJOR   7  /* optional experimental real-mode module */
 #define TCPDEV_MAJOR      8
 #define ETH_MAJOR         9
 #define CGATEXT_MAJOR     10

@@ -2,8 +2,16 @@
 #include <linuxmt/types.h>
 #include <linuxmt/init.h>
 
+#ifdef CONFIG_KMOD_CHAR
+void INITPROC kmodchar_init(void);
+#endif
+
 void INITPROC chr_dev_init(void)
 {
+#ifdef CONFIG_KMOD_CHAR
+    kmodchar_init();
+#endif
+
 #ifdef CONFIG_CHAR_DEV_LP
     lp_init();
 #endif

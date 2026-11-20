@@ -42,6 +42,9 @@ OBJS += lp.o                                # CONFIG_CHAR_DEV_LP
 OBJS += eth.o                               # CONFIG_ETH
 OBJS += tcpdev.o                            # CONFIG_INET
 OBJS += audio-sb.o audio-mad.o              # CONFIG_AUDIO_SB
+ifdef CONFIG_KMOD_CHAR
+OBJS += kmodchar.o
+endif
 OBJS += mouse-ps2.o                         # CONFIG_MOUSE_PS2
 
 #

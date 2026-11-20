@@ -421,6 +421,25 @@ Enable standard serial ports
 CONFIG_CHAR_DEV_RS
   Include support for serial port devices.
 
+Experimental real-mode loadable character module
+CONFIG_KMOD_CHAR
+  Build a root-only, single-slot character module loader into an IBM-PC
+  real-mode disk kernel. Leave it off unless testing trusted module code.
+  A KMC1 image runs as kernel code, not in a sandbox. The format currently
+  supports only a position-independent far entry, not general relocations,
+  kernel imports, interrupts, timers or DMA.
+
+  With the ELKS cross tools and libc installed, run make -C elkscmd/kmodchar
+  to build the separate hello.kmc module, kmodctl and kmodtest. Copy them
+  to the test ELKS disk, boot the opted-in kernel, then as root run:
+
+    (umask 077; mknod /dev/kmodctl c 7 0)
+    (umask 222; mknod /dev/kmoddemo c 7 1)
+    ./kmodtest hello.kmc
+
+  To try it manually: ./kmodctl load hello.kmc; cat /dev/kmoddemo;
+  ./kmodctl unload. The data device refuses opens when nothing is loaded.
+
 Sound Blaster /dev/dsp driver
 CONFIG_CHAR_DEV_DSP
   Include support for playing sound on a Sound Blaster or compatible ISA

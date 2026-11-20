@@ -41,6 +41,7 @@ typedef struct segment segment_s;
 #define SEG_FLAG_EXTBUF	 0x05   /* ext/main memory buffers */
 #define SEG_FLAG_RAMDSK	 0x06   /* ram disk buffers */
 #define SEG_FLAG_VIDBUF  0x07   /* console video buffers */
+#define SEG_FLAG_KMOD    0x08   /* trusted kernel module text */
 
 #ifdef __KERNEL__
 

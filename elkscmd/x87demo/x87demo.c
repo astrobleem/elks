@@ -1,5 +1,5 @@
 /*
- * Optional real-mode 386+ x87 smoke test for ELKS. Integer-only main/stdio.
+ * Optional real-mode 286+ x87 smoke test for ELKS. Integer-only main/stdio.
  * The assembly saves/restores x87 state in a bounded, non-scheduling window.
  * This is not an x87 context switch implementation for the ELKS kernel.
  */
@@ -52,7 +52,7 @@ int main(int argc, char **argv)
     case 0:
         break;
     case 1:
-        puts("No x87 executed: requires an IBM-compatible 386+ in real mode.");
+        puts("No x87 executed: requires an IBM-compatible 286+ in real mode.");
         return 2;
     case 2:
         puts("No x87 executed: BIOS does not report a math coprocessor.");

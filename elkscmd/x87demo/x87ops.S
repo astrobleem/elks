@@ -1,6 +1,6 @@
 /*
  * 16-bit real-mode IBM-PC x87 demo. Everything ahead of SMSW is safe on
- * 8086; the FLAGS test requires the 386 real-mode high-FLAGS behavior.
+ * 8086; the high FLAGS bits cannot be cleared on an 8086/186.
  * BIOS equipment word is a conservative presence hint, not an FPU probe.
  */
         .arch i8086
@@ -19,21 +19,10 @@ x87_ready:
         popw %dx
         pushw %cx
         popf
-        testw $0xf000,%dx         /* fixed ones on the 8086 family */
+        testw $0xf000,%dx         /* fixed ones on the 8086/186 family */
         jnz .Lunsupported
-        movw %cx,%ax
-        orw $0x7000,%ax
-        pushw %ax
-        popf
-        pushf
-        popw %dx
-        pushw %cx
-        popf
-        testw $0x7000,%dx         /* fixed zero on real-mode 286 */
-        jz .Lunsupported
-
-        .arch i386
-        .arch .387
+        .arch i286
+        .arch .287
         smsw %ax
         testw $1,%ax              /* PE: don't use real-mode BDA or CLI */
         jnz .Lunsupported
@@ -83,8 +72,10 @@ x87_measure:
         fsqrt
         fimuls %cs:.L1000
         fistpl 8(%bx)
-        fwait
+        fwait                    /* complete 287 memory stores before returning */
 
+        /* 287 FRSTOR synchronizes its state-image read; do not wait on
+         * a possibly pending exception from the restored x87 state. */
         frstor -96(%bp)
         popf                     /* restore the original IRQ enable state */
         addw $94,%sp

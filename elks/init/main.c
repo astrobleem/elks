@@ -236,6 +236,15 @@ static void INITPROC early_kernel_init(void)
 #endif
     //memend = 256 << 6;            /* force early XMS allocations in PM */
     dmesg_init();                   /* may decrease memend */
+#ifdef CONFIG_ARCH_IBMPC
+    if (tandy_video_requested) {
+        unsigned int off = peekw(0x40, 0), seg = peekw(0x42, 0);
+        printk("TGA PROBE mem=%u id=%02x/%02x ivt=%04x:%04x dcc=%04x ega=%04x c000=%04x b5=%02x crtc=%04x reserved=%04x\n",
+            SETUP_MEM_KBYTES, peekb(0x000e,0xffff), peekb(0,0xfc00),
+            seg, off, SETUP_VIDEO_DCC, SETUP_VIDEO_EGA, peekw(0,0xc000),
+            peekb(0xb5,0x40), peekw(0x63,0x40), tandy_video_reserved);
+    }
+#endif
     mm_init(membase, memend);       /* init far/main memory allocator */
 
 #ifdef CONFIG_BOOTOPTS

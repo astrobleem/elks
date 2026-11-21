@@ -18,6 +18,40 @@ unsigned int heapsize;  /* max size of kernel near heap */
 byte_t sys_caps;        /* system capabilities bits */
 unsigned char arch_cpu; /* CPU type from cputype.S */
 
+#ifdef CONFIG_ARCH_IBMPC
+/*
+ * Identify the active onboard dispatcher, not merely an installed Tandy
+ * system ROM. Only dereference fixed ROM locations after the IVT check.
+ */
+static int INITPROC tandy_video_active(void)
+{
+    unsigned short entry, call;
+
+    if (SETUP_VIDEO_DCC != 0xffff || SETUP_VIDEO_EGA != 0xffff ||
+        peekw(0, 0xc000) == 0xaa55 || peekw(0x63, 0x40) != 0x3d4 ||
+        (peekb(0xb5, 0x40) & 0x10))
+        return 0;
+
+    if (peekw(0x40, 0) != 0xf065 || peekw(0x42, 0) != 0xf000)
+        return 0;
+
+    entry = peekw(0xf066, 0xf000);
+    call = peekw(0xf06e, 0xf000);
+    if (!((entry == 0xe856 && call == 0xe868) ||  /* 1000 EX/SX 01.02.00 */
+          (entry == 0x0e29 && call == 0x0e41)))   /* 1000 HX 02.00.00 */
+        return 0;
+
+    /* Dispatch table and mode gate: BDA 40:B5 bit 4 restricts modes to 0-7. */
+    return peekw(0xf072, 0xf000) == 0xff2e &&
+        peekw(0xf074, 0xf000) == 0x77a5 &&
+        peekw(0xf076, 0xf000) == 0x20f0 &&
+        peekw(0xf13c, 0xf000) == 0x06f6 &&
+        peekw(0xf13e, 0xf000) == 0x00b5 &&
+        peekw(0xf140, 0xf000) == 0x7410 &&
+        peekw(0xf149, 0xf000) == 0x0a3c;
+}
+#endif
+
 unsigned int INITPROC setup_arch(void)
 {
     unsigned int endbss, heapsegs;
@@ -64,11 +98,12 @@ unsigned int INITPROC setup_arch(void)
      * reserves only its upper half. Reserve the rest BEFORE mm_init. */
     if (tandy_video_requested) {
         if (SETUP_MEM_KBYTES == 624 && peekb(0x000e,0xffff) == 0xff &&
-            peekb(0,0xfc00) == 0x21 && membase < 0x9800) {
+            peekb(0,0xfc00) == 0x21 && membase < 0x9800 &&
+            tandy_video_active()) {
             memend = 0x9800;
             tandy_video_reserved = 0x9800;
             printk("Tandy video: 32K reserved at 98000, usable RAM 608K\n");
-        } else printk("Tandy video: unsupported memory layout, color disabled\n");
+        } else printk("Tandy video: active onboard graphics or shared RAM not confirmed, color disabled\n");
     }
 #endif
 

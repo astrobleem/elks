@@ -38,10 +38,10 @@
 !
 ! index
 !	...
-!	4:	display page, 1 byte UNUSED
+!	4:	active/alternate IBM PC display combination (word, FFFF if unavailable)
 !	6:	video mode, 1 byte UNUSED
 !	7:	screen_cols, 1 byte
-!	8:	video data, 2 bytes UNUSED
+!	8:	IBM PC EGA BIOS response BX (word, FFFF if unmodified)
 !	10:	mono/color, video memory size, 2 bytes UNUSED
 !	14:	screen_lines, 1 byte UNUSED
 !	15:	VGA present, 1 byte UNUSED
@@ -921,6 +921,46 @@ arch_set_initseg:
 	mov	$0x0f,%ah       // get video state
 	int	$0x10
 	mov	%ah,7		// ah = video columns
+
+	// Read-only video BIOS queries. FFFF denotes no response.
+	push	%es
+	push	%si
+	push	%di
+	push	%bp
+	pushf
+	push	%ds
+	mov	$0x1a00,%ax	// IBM VGA get display combination: BL active, BH alternate
+	mov	$0xffff,%bx
+	int	$0x10
+	pop	%ds
+	movw	$0xffff,4
+	cmp	$0x1a,%al
+	jne	1f
+	cmp	$0xffff,%bx
+	jne	2f
+	xor	%bx,%bx		// malformed but acknowledged: still a veto
+2:
+	mov	%bx,4
+1:
+	push	%ds
+	mov	$0x1200,%ax
+	mov	$0xff10,%bx	// IBM EGA get information: BH display type, BL RAM
+	int	$0x10
+	pop	%ds
+	movw	$0xffff,8
+	cmp	$0xff10,%bx
+	je	1f
+	cmp	$0xffff,%bx
+	jne	2f
+	xor	%bx,%bx		// changed but malformed: still a veto
+2:
+	mov	%bx,8
+1:
+	popf
+	pop	%bp
+	pop	%di
+	pop	%si
+	pop	%es
 
 	call	getcpu		// implemented in cputype.S
 

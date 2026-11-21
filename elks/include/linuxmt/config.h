@@ -25,6 +25,8 @@
 #define SETUP_VID_COLS          setupb(7)       /* BIOS video # columns */
 #define SETUP_VID_LINES         25              /* video # lines */
 #define SETUP_CPU_TYPE          setupb(0x20)    /* processor type */
+#define SETUP_VIDEO_DCC         setupw(4)       /* INT 10h AX=1a00h, or ffff */
+#define SETUP_VIDEO_EGA         setupw(8)       /* INT 10h AX=1200h BL=10h, or ffff */
 #define SETUP_MEM_KBYTES        setupw(0x2a)    /* base memory in 1K bytes */
 #define SETUP_XMS_KBYTES        setupw(0x1ea)   /* xms memory in 1K bytes */
 #define SETUP_ROOT_DEV          setupw(0x1fc)   /* root device, kdev_t or BIOS dev */

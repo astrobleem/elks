@@ -10,8 +10,16 @@ Leave the option absent for normal operation. Keep a known-working boot disk.
 Build using the normal ELKS 0.9.2 instructions in BUILD.md.
 
 The supported layout is BIOS base memory 624 KB with original-Tandy ROM
-bytes FFFF:000E=FF and FC00:0000=21. Before mm_init, the reservation lowers
-the usable memory end to segment 9800 (608 KB), protecting 98000-9FFFF.
+bytes FFFF:000E=FF and FC00:0000=21. The active INT 10h vector and its ROM
+dispatcher/mode checks must identify known onboard graphics: the 1000 EX/SX
+BIOS 01.02.00 or 1000 HX BIOS 02.00.00. A VGA display-combination or EGA
+information response, an option ROM at C000:0000, a non-color text CRTC, or
+the ROM's restricted-mode BIOS flag prevents reservation. These are read-only
+checks; they do not set a video mode or probe framebuffer memory. An unknown
+BIOS or conflicting evidence leaves the normal memory layout unchanged.
+
+Before mm_init, an accepted reservation lowers the usable memory end to
+segment 9800 (608 KB), protecting 98000-9FFFF.
 Reservation is refused if the kernel reaches that boundary. Manual UMB
 ranges that overlap the reserved video RAM are ignored.
 
@@ -19,7 +27,8 @@ MEM_GETTANDY (ioctl 14 on /dev/kmem) returns 0x9800 only if the reservation
 succeeded, and zero otherwise. Applications must check this result before
 using the framebuffer; a machine label alone is not a safety check.
 
-This is based on v0.9.2, not the fork's newer master. The final IBMPC kernel
+This is based on v0.9.2, not the fork's newer master. For the original
+layout-only reservation, the final IBMPC kernel
 cross-build passed with upstream network sources. A host test of the
 allocation logic covered 8192 memory/signature/enable combinations and
 kernel overlap. A previous same-logic revision booted in QEMU and rejected

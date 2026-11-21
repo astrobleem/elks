@@ -91,6 +91,8 @@ static struct {
         seg_t base;
         segext_t len;
     } umbseg[MAX_UMB], *nextumb;
+    struct umbseg nomem;               /* one explicit conventional-RAM tail */
+    unsigned char nomem_seen, nomem_invalid;
     unsigned char options[OPTSEGSZ];    /* near data parsing buffer */
 } opts;
 
@@ -233,7 +235,18 @@ static void INITPROC early_kernel_init(void)
     membase += GDT_SIZE >> 4;       /* skip GDT table at kernel_ds + 0x1000 */
 #endif
     //memend = 256 << 6;            /* force early XMS allocations in PM */
-    dmesg_init();                   /* may decrease memend */
+#ifdef CONFIG_BOOTOPTS
+    if (opts.nomem_seen && !opts.nomem_invalid) {
+        if (opts.nomem.base >= membase && opts.nomem.base < memend &&
+            (unsigned long)opts.nomem.base + opts.nomem.len >= memend)
+            memend = opts.nomem.base;
+        else {
+            opts.nomem_invalid = 1;
+            printk("Ignoring nomem= outside the conventional memory tail\n");
+        }
+    }
+#endif
+    dmesg_init();                   /* reserves only below the excluded tail */
     mm_init(membase, memend);       /* init far/main memory allocator */
 
 #ifdef CONFIG_BOOTOPTS
@@ -241,6 +254,12 @@ static void INITPROC early_kernel_init(void)
     /* now able to add umb memory segments */
     for (p = opts.umbseg; p < &opts.umbseg[MAX_UMB]; p++) {
         if (p->base) {
+            if (opts.nomem_seen && !opts.nomem_invalid &&
+                (unsigned long)p->base + p->len > opts.nomem.base &&
+                p->base < (unsigned long)opts.nomem.base + opts.nomem.len) {
+                printk("Ignoring umb= overlapping nomem=\n");
+                continue;
+            }
             debug("umb segment from %x to %x\n", p->base, p->base + p->len);
             seg_add(p->base, p->base + p->len);
             umbtotal += p->len;
@@ -535,6 +554,49 @@ static void INITPROC parse_umb(char *line)
     } while((p = strchr(p+1, ',')));
 }
 
+/* Read exactly one unsigned hexadecimal word, without wrapping. */
+static const char * INITPROC nomem_hex(const char *p, unsigned int *value)
+{
+    unsigned int n = 0, digits = 0, digit;
+    if (*p == '0' && (p[1] == 'x' || p[1] == 'X'))
+        p += 2;
+    for (;;) {
+        digit = (unsigned char)*p;
+        if (digit >= '0' && digit <= '9')
+            digit -= '0';
+        else if ((digit | 0x20) >= 'a' && (digit | 0x20) <= 'f')
+            digit = (digit | 0x20) - 'a' + 10;
+        else
+            break;
+        if (++digits > 4)
+            return NULL;
+        n = (n << 4) | digit;
+        ++p;
+    }
+    *value = n;
+    return digits ? p : NULL;
+}
+
+static void INITPROC parse_nomem(const char *p)
+{
+    unsigned int base, len;
+
+    if (!opts.nomem_seen) {
+        p = nomem_hex(p, &base);
+        if (p && *p == ':') {
+            p = nomem_hex(p + 1, &len);
+            if (p && !*p && len && (unsigned long)base + len <= 0x10000UL) {
+                opts.nomem.base = base;
+                opts.nomem.len = len;
+                opts.nomem_seen = 1;
+                return;
+            }
+        }
+    }
+    opts.nomem_seen = opts.nomem_invalid = 1;
+    printk("Ignoring invalid or repeated nomem= option\n");
+}
+
 static void INITPROC parse_disable(char *line)
 {
     char *p = line;
@@ -726,6 +788,10 @@ static int INITPROC parse_options(void)
             comirq(line+7);
             continue;
         }
+        if (!strncmp(line,"nomem=",6)) {
+            parse_nomem(line+6);
+            continue;
+        }
         if (!strncmp(line,"umb=",4)) {
             parse_umb(line+4);
             continue;
@@ -846,6 +912,8 @@ void INITPROC dmesg_init(void)
 
     if (dmesg) {
         if (dmesg > 63) dmesg = 63;
+        if (memend <= membase || (unsigned int)(dmesg << 6) >= memend - membase)
+            return;
         dmesg_seg = memend - (dmesg << 6);
         memend -= (dmesg << 6);
 #ifdef CONFIG_286_PMODE

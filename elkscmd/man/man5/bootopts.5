@@ -31,6 +31,19 @@ The
 .BR /bootopts
 file is limited to a maximum of 1023 bytes in size.
 .PP
+.B nomem=segment:length
+excludes one range at the top of otherwise available conventional memory.
+Both values are hexadecimal in paragraphs (16 bytes). The range must start
+in available memory and reach or extend past its top. For example,
+.B nomem=9800:0800
+keeps the physical range 98000h through 9FFFFh out of the allocator, if it
+meets those conditions. An overlapping
+.B umb=
+entry is not added. An interior range, list, or repeated
+.B nomem=
+is not supported. There is no exclusion by default. This setting neither
+detects hardware nor relocates already-loaded code or data.
+.PP
 Here's an expanded version of the distribution (default)
 .B /bootopts
 file, with everything commented out:

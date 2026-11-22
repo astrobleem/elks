@@ -24,5 +24,8 @@ lpttest: lpttest.c ../../include/kmodchar.h
 sbmodtest: sbmodtest.c ../../include/kmodchar.h
 	$(CC) $(CFLAGS) -o $@ $<
 
+pc98fmnote: pc98fmnote.c
+	$(CC) $(CFLAGS) -o $@ $<
+
 clean:
-	$(RM) hello.o hello.kmc lpt1.o lpt1.kmc kmodctl kmodtest lpttest sb220.o sb220.kmc sbmodtest pc98beep.o pc98beep.kmc
+	$(RM) hello.o hello.kmc lpt1.o lpt1.kmc kmodctl kmodtest lpttest sb220.o sb220.kmc sbmodtest pc98beep.o pc98beep.kmc pc98fmnote

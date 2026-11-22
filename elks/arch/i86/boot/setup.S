@@ -935,6 +935,7 @@ arch_set_initseg:
 1:
 #ifdef CONFIG_BOOTOPTS
 	call	bootopts	// load /bootopts into SEG_OPTSEG (0050:0000)
+	call	topmem_bootopt	// MINIX or FAT bootopts are now in SEG_OPTSEG
 	call    hmabootopts	// check /bootopts for hma=kernel
 	mov	%al,hma_kernel
 #endif
@@ -1249,6 +1250,64 @@ checkhma:
 1:	stc				// fail
 2:	pop	%ds
 	ret
+
+#ifdef CONFIG_ARCH_IBMPC
+// Optional TOPMEM=ddd line. Only cap the upper conventional-memory tail.
+// The loader/setup still use the unmodified BIOS result for scratch placement.
+topmem_bootopt:
+	push	%ds
+	mov	$SEG_OPTSEG,%ax
+	mov	%ax,%ds
+	xor	%si,%si
+	cmpw	$0x2323,(%si)	// require the usual ## bootopts signature
+	jne	5f
+1:	cmp	$OPTSEGSZ-12,%si	// TOPMEM=ddd plus optional CR and LF/NUL
+	ja	5f
+	cmpw	$0x4f54,(%si)	// TO
+	jne	4f
+	cmpw	$0x4d50,2(%si)	// PM
+	jne	4f
+	cmpw	$0x4d45,4(%si)	// EM
+	jne	4f
+	cmpb	$'=',6(%si)
+	jne	4f
+	add	$7,%si
+	xor	%ax,%ax
+	mov	$10,%bx
+	mov	$3,%cx
+2:	mulw	%bx		// DX is zero: at most 99 * 10
+	movb	(%si),%dl
+	subb	$'0',%dl
+	cmpb	$9,%dl
+	ja	5f
+	inc	%si
+	add	%dx,%ax
+	loop	2b
+	cmpb	$13,(%si)
+	jne	3f
+	inc	%si
+3:	cmpb	$10,(%si)
+	je	6f
+	cmpb	$0,(%si)
+	jne	5f
+6:	cmp	$608,%ax	// only the currently qualified high-memory tail
+	jb	5f
+	pop	%ds
+	cmp	mem_kbytes,%ax
+	jae	7f
+	mov	%ax,mem_kbytes
+7:	ret
+4:	cmp	$OPTSEGSZ,%si
+	jae	5f
+	lodsb
+	test	%al,%al
+	jz	5f
+	cmp	$10,%al
+	je	1b
+	jmp	4b
+5:	pop	%ds
+	ret
+#endif
 
 #endif /* ifdef CONFIG_BOOTOPTS */
 

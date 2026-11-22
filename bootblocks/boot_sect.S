@@ -144,6 +144,10 @@ entry1:
 	xor %si,%si
 #else
 	mov %di,%ds		// DS:SI = 0:BOOTADDR
+#if defined(BOOT_FAT) && defined(CONFIG_ARCH_IBMPC) && defined(CONFIG_BOOTOPTS)
+	// FAT setup may not find /bootopts. Do not reuse the prior boot's options.
+	movw %di,SEG_OPTSEG*16
+#endif
 	mov $BOOTADDR,%si
 #endif
 	mov $SECTOR_SIZE/2,%cx  // sector size in words

@@ -4,6 +4,7 @@
 
 #include <linuxmt/config.h>
 #include <linuxmt/kernel.h>
+#include <kmodchar.h>
 #include "conio-pc98-asm.h"
 
 void conio_init()
@@ -14,6 +15,9 @@ void conio_init()
 
 void bell(void)
 {
+#ifdef CONFIG_KMOD_CHAR
+    kmodchar_pc98_bell();
+#endif
 }
 
 void soundp(unsigned period)

@@ -7,8 +7,13 @@
 #include <linuxmt/sched.h>
 #include <kmodchar.h>
 
-#if !defined(CONFIG_ARCH_IBMPC) || defined(CONFIG_286_PMODE) || defined(CONFIG_ROMCODE)
-#error Experimental character modules require an IBM-PC real-mode disk kernel
+#if defined(CONFIG_ARCH_PC98)
+#include <arch/irq.h>
+#include <linuxmt/timer.h>
+#endif
+
+#if (!defined(CONFIG_ARCH_IBMPC) && !(defined(CONFIG_ARCH_PC98) && defined(CONFIG_CONSOLE_DIRECT))) || defined(CONFIG_286_PMODE) || defined(CONFIG_ROMCODE)
+#error Experimental character modules require a supported real-mode disk kernel
 #endif
 #if defined(CONFIG_KMOD_LPT) && defined(CONFIG_CHAR_DEV_LP)
 #error Built-in LP and the LPT module must not claim the same ports
@@ -32,6 +37,41 @@ static unsigned char module_dsp;
 #endif
 #ifdef CONFIG_KMOD_LPT
 static unsigned char module_lpt;
+#endif
+
+#ifdef CONFIG_ARCH_PC98
+static unsigned char module_bell;
+
+static void bell_off(void *unused)
+{
+    flag_t flags;
+    save_flags(flags);
+    clr_irq();
+    if (module_bell)
+        module_read_byte(KMOD_PC98_BEEP_OFF);
+    restore_flags(flags);
+}
+
+static struct timer_list bell_timer = {
+    .tl_function = bell_off
+};
+
+void kmodchar_pc98_bell(void)
+{
+    flag_t flags;
+    save_flags(flags);
+    clr_irq();
+    if (module_bell) {
+        del_timer(&bell_timer);
+        if (module_read_byte(KMOD_PC98_BEEP_ON)) {
+            bell_off(NULL);
+        } else {
+            bell_timer.tl_expires = jiffies + HZ / 10;
+            add_timer(&bell_timer);
+        }
+    }
+    restore_flags(flags);
+}
 #endif
 
 static unsigned int read_word(const unsigned char *p)
@@ -89,6 +129,12 @@ static int load_module(void *user_arg)
             return -EINVAL;
         break;
 #endif
+#ifdef CONFIG_ARCH_PC98
+    case 'B':
+        if (output != KMOD_PC98_BEEP_PORT)
+            return -EINVAL;
+        break;
+#endif
     default:
         return -EINVAL;
     }
@@ -117,6 +163,9 @@ static int load_module(void *user_arg)
 #endif
     module_output = output;
     module_text = text;
+#ifdef CONFIG_ARCH_PC98
+    module_bell = header[3] == 'B';
+#endif
     return 0;
 }
 
@@ -148,6 +197,17 @@ static int kmodchar_ioctl(struct inode *inode, struct file *file,
             module_dsp = 0;
         }
 #endif
+#ifdef CONFIG_ARCH_PC98
+        if (module_bell) {
+            flag_t flags;
+            save_flags(flags);
+            clr_irq();
+            del_timer(&bell_timer);
+            bell_off(NULL);
+            module_bell = 0;
+            restore_flags(flags);
+        }
+#endif
         text = module_text;
         module_text = NULL;
         module_read_byte = NULL;
@@ -170,6 +230,10 @@ static int kmodchar_open(struct inode *inode, struct file *file)
     case KMODCHAR_DEV_MINOR:
         if (!module_text)
             return -ENODEV;
+#ifdef CONFIG_ARCH_PC98
+        if (module_bell)
+            return -ENODEV;    /* only the existing console BEL controls KMCB */
+#endif
 #ifdef CONFIG_KMOD_DSP
         if (module_dsp)
             return -ENODEV;    /* KMC3 uses /dev/dsp, not /dev/kmoddemo */

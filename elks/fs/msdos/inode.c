@@ -72,6 +72,9 @@ struct msdos_devdir_entry devnods[DEVDIR_SIZE] = {
     { "3c0",	S_IFCHR | 0644, MKDEV(ETH_MAJOR, 2)         },
     { "ul0",	S_IFCHR | 0644, MKDEV(ETH_MAJOR, 3)         },
     { "le0",	S_IFCHR | 0644, MKDEV(ETH_MAJOR, 4)         },
+#if defined(CONFIG_ARCH_PC98) && defined(CONFIG_KMOD_CHAR)
+    { "kmodctl", S_IFCHR | 0600, MKDEV(KMOD_CHAR_MAJOR, 0) },
+#endif
 };
 #endif
 

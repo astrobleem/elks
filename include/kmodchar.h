@@ -9,6 +9,10 @@
 #define KMODCHAR_MAX_OUTPUT 64
 #define KMODCHAR_HEADER_LEN 10
 
+#define KMOD_PC98_BEEP_PORT  0x0037
+#define KMOD_PC98_BEEP_OFF   0
+#define KMOD_PC98_BEEP_ON    1
+
 #define KMOD_LPT_PORT       0x0378
 #define KMOD_LPT_SENT       0
 #define KMOD_LPT_BUSY       1
@@ -32,12 +36,18 @@
  * A cdecl far entry takes KMOD_SB_RESET or KMOD_SB_ACK. RESET returns
  * zero on successful DSP handshake, nonzero otherwise. ACK returns zero
  * and can run in interrupt context. It must not call the kernel or sleep.
+ * KMCB: same layout, last word is the PC-98 system PPI control port
+ * (0x37 only). cdecl far entry takes KMOD_PC98_BEEP_ON/OFF, returns zero.
+ * The kernel supplies a short, fixed-duration console BEL, not raw I/O.
  * Preserve DS/ES and cdecl callee-saved registers. No callbacks into the kernel,
  * blocking, interrupt or DMA work. This is trusted native code, not a sandbox.
  */
 #ifndef __ASSEMBLER__
 #ifdef __KERNEL__
 typedef __attribute__((__cdecl__)) __far int (*module_entry_t)(unsigned int);
+#if defined(CONFIG_ARCH_PC98) && defined(CONFIG_KMOD_CHAR)
+void kmodchar_pc98_bell(void);
+#endif
 #ifdef CONFIG_KMOD_DSP
 int FARPROC sb_attach_module(module_entry_t entry);
 int FARPROC sb_detach_module(void);

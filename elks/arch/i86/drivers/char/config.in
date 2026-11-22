@@ -51,5 +51,9 @@ mainmenu_option next_comment
 				bool 'Allow Sound Blaster loadable hardware hooks' CONFIG_KMOD_DSP n
 			fi
 		fi
+	elif [ "$CONFIG_ARCH_PC98" = "y" ] && [ "$CONFIG_CONSOLE_DIRECT" = "y" ]; then
+		if [ "$CONFIG_286_PMODE" != "y" ] && [ "$CONFIG_ROMCODE" != "y" ]; then
+			bool 'Experimental loadable PC-98 console beeper' CONFIG_KMOD_CHAR n
+		fi
 	fi
 endmenu

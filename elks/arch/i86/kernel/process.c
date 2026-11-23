@@ -64,7 +64,11 @@ void INITPROC kfork_proc(void (*addr)())
  *  especially as our syscall entry doesnt use the user stack.
  */
 
+#ifdef CONFIG_286_PMODE
+#define USER_FLAGS 0x3202               /* IOPL3 + IF, never enable nested-task IRET */
+#else
 #define USER_FLAGS 0xf202               /* IPL 3, interrupts enabled, NEC V25 IBRK disabled */
+#endif
 
 void put_ustack(register struct task_struct *t,int off,int val)
 {

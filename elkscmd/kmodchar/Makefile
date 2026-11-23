@@ -27,5 +27,8 @@ sbmodtest: sbmodtest.c ../../include/kmodchar.h
 pc98fmnote: pc98fmnote.c
 	$(CC) $(CFLAGS) -o $@ $<
 
+elksvgm: elksvgm.c
+	$(CC) $(CFLAGS) -o $@ $<
+
 clean:
-	$(RM) hello.o hello.kmc lpt1.o lpt1.kmc kmodctl kmodtest lpttest sb220.o sb220.kmc sbmodtest pc98beep.o pc98beep.kmc pc98fmnote
+	$(RM) hello.o hello.kmc lpt1.o lpt1.kmc kmodctl kmodtest lpttest sb220.o sb220.kmc sbmodtest pc98beep.o pc98beep.kmc pc98fmnote elksvgm

@@ -14,6 +14,9 @@
 #include <arch/seg286.h>
 #include <arch/system.h>
 #include <arch/irq.h>
+#ifdef CONFIG_PM_RAMROOT_DEMO
+#include <arch/io.h>
+#endif
 
 /* Disallow certain configurations for protected mode builds */
 #if defined(CONFIG_BLK_DEV_BFD) || defined(CONFIG_BLK_DEV_BHD)
@@ -171,6 +174,14 @@ void pm_early_init(void)
     if (!enable_a20_gate())
         printk("A20 fail ");
 
+#ifdef CONFIG_PM_RAMROOT_DEMO
+    /* A20 BIOS code may return with IF set, before the BIOS-vector PIC has
+     * been remapped for the PM IDT. irq_init() restores the normal mapping
+     * and unmasks the active IRQs later. */
+    clr_irq();
+    outb(0xff, 0xa1);
+    outb(0xff, 0x21);
+#endif
     /* Init sel_gdt now with a segment address to allow desc_set to build the
      * initial GDT in real mode, which is placed just after the kernel data segment.
      * Then create the SEL_GDT, SEL_IDT ad other selectors, which will be used after

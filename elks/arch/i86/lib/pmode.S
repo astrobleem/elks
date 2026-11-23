@@ -45,7 +45,12 @@ pm_cs:
         mov     %ax,%es
         mov     %ax,%ss         // SS base = kernel_ds<<4 (same phys as real-mode SS)
 
-        popf                    // restore interrupt status
+#ifdef CONFIG_PM_RAMROOT_DEMO
+        pop     %ax
+        and     $0xbdff,%ax     // do not enter the early PM path with NT or IF
+        push    %ax
+#endif
+        popf
         pop     %bp
         ret                     // return (in PM) to gdt_init -> crt0 -> start_kernel
 

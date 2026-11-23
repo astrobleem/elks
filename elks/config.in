@@ -21,6 +21,10 @@ mainmenu_option next_comment
 		bool 'MK-88 Hardware (IRQ 3 keyboard)' CONFIG_HW_MK88 n
 		bool 'i286 protected mode (experimental)' CONFIG_286_PMODE n
 
+		if [ "$CONFIG_286_PMODE" = "y" ]; then
+			bool 'Boot dedicated offline VGA RAM-root fixture' CONFIG_PM_RAMROOT_DEMO n
+		fi
+
 		comment 'Devices'
 
 		bool 'Serial port FIFO' CONFIG_HW_SERIAL_FIFO y

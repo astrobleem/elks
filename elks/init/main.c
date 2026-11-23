@@ -225,6 +225,65 @@ static void INITPROC early_kernel_init(void)
     hasopts = parse_options();      /* parse options found in /bootops */
 #endif
 
+#ifdef CONFIG_PM_RAMROOT_DEMO
+    /* The real-mode FAT loader puts the appended disk at 0x36000.
+     * Above 1 MiB, reserve it before the extended-memory allocator starts. */
+    {
+        const addr_t source = 0x36000UL, dest = XMS_START_ADDR;
+        const unsigned int kb = 256;
+        extern void INITPROC ssd_xms_preload(addr_t base, unsigned int kb);
+        unsigned int off;
+        sel_t src, dst;
+
+        if (SETUP_XMS_KBYTES < kb ||
+            (addr_t)SETUP_MEM_KBYTES * 1024UL < source + kb * 1024UL ||
+            desc_base(SEL_GDT) + GDT_SIZE > source)
+            goto preload_fail;
+        src = desc_alloc(source, 512U, DESC_KDATA);
+        if (!src || peekw(11, src) != 512 || peekw(510, src) != 0xaa55)
+            goto preload_fail;
+        desc_free(src);
+        /* Check A20 immediately before writing anywhere above 1 MiB. */
+        {
+            sel_t lo = desc_alloc(source, 2, DESC_KDATA);
+            sel_t hi = desc_alloc(source + 0x100000UL, 2, DESC_KDATA);
+            word_t old, high;
+            if (!lo || !hi)
+                goto preload_fail;
+            old = peekw(0, lo);
+            high = peekw(0, hi);
+            pokew(0, hi, old ^ 0xffff);
+            if (peekw(0, hi) != (word_t)(old ^ 0xffff) || peekw(0, lo) != old) {
+                pokew(0, hi, high);
+                pokew(0, lo, old);
+                goto preload_fail;
+            }
+            pokew(0, hi, high);
+            desc_free(hi);
+            desc_free(lo);
+        }
+        for (off = 0; off < kb; off += 16) {
+            src = desc_alloc(source + (addr_t)off * 1024UL, 16384, DESC_KDATA);
+            dst = desc_alloc(dest + (addr_t)off * 1024UL, 16384, DESC_KDATA);
+            if (!src || !dst)
+                goto preload_fail;
+            fmemcpyw(0, dst, 0, src, 8192);
+            if (fmemcmpw(0, dst, 0, src, 8192))
+                goto preload_fail;
+            desc_free(dst);
+            desc_free(src);
+        }
+        xms_alloc_ptr += kb;
+        ssd_xms_preload(dest, kb);
+        boot_rootdev = ROOT_DEV = MKDEV(SSD_MAJOR, 0);
+        root_mountflags &= ~MS_RDONLY; /* writes are private RAM only */
+        goto preload_ok;
+preload_fail:
+        for (;;) __asm__ volatile ("cli; hlt");
+preload_ok:;
+    }
+#endif
+
     /* create near heap at end of kernel bss */
     heap_init();                    /* init near memory allocator */
     heapofs = setup_arch();         /* sets membase and memend globals */
@@ -446,6 +505,12 @@ char *root_dev_name(kdev_t dev)
 int INITPROC dev_disabled(int dev)
 {
     int i;
+
+#ifdef CONFIG_PM_RAMROOT_DEMO
+    /* Never probe or drive physical CF after BIOS loaded the RAM fixture. */
+    if (dev == DEV_CFA)
+        return 1;
+#endif
 
     for (i=0; i < ARRAYLEN(disabled); i++)
         if (disabled[i] == dev)

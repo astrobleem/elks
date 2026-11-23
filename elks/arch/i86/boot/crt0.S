@@ -88,9 +88,13 @@ early_putchar:
         ret
 #elif defined(CONFIG_286_PMODE)
 early_putchar:
+#ifdef CONFIG_PM_RAMROOT_DEMO
+        ret                             // No COM1 assumption on offline hardware
+#else
         mov   %sp,%bx
         mov   2(%bx),%al
         jmp   putc_ser                  // write COM1, can't use BIOS INT 10h
+#endif
 #elif defined(CONFIG_ARCH_IBMPC) || defined(CONFIG_ARCH_8018X)
 early_putchar:
         mov   %sp,%bx

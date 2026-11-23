@@ -29,6 +29,17 @@ static unsigned  int xms_ram_size;      /* ramdisk size in Kbytes */
 static segment_s *   xms_seg;           /* saved segment_s for PM dealloc */
 #endif
 
+#ifdef CONFIG_PM_RAMROOT_DEMO
+/* The offline fixture reserves this storage before the kernel allocator. */
+void INITPROC ssd_xms_preload(addr_t base, unsigned int kb)
+{
+    xms_ram_base = base;
+    xms_ram_size = kb;
+    ssd_num_sects = (sector_t)kb << 1;
+    ssd_initialized = 1;
+}
+#endif
+
 /* initialize SSD device */
 sector_t ssddev_init(void)
 {

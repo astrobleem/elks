@@ -149,6 +149,10 @@ void INITPROC pm_init(void)
     desc_set(SEL_OPTSEG, SEG_OPTSEG << 4, 1024, DESC_KDATA);    /* /bootopts segment */
     desc_set(SEL_BIOSDATA, SEG_BIOSDATA << 4, 256, DESC_KDATA); /* BIOS data area */
     desc_set(SEL_VIDEO, (addr_t)SEG_VIDEO << 4, 32768L, DESC_KDATA); /* text video area */
+#ifdef CONFIG_PM_RAMROOT_DEMO
+    /* Existing Nano-X VGA backend uses the A000 segment value directly. */
+    desc_set(0xa000, 0xa0000UL, 65536UL, DESC_KDATA);
+#endif
 
 #ifdef TRACKSEGSZ
     /* low-memory DMA track buffer (direct floppy) */
@@ -171,8 +175,13 @@ void pm_early_init(void)
     struct dtr gdtr, idtr;
 
     /* enable A20 while still in real mode (calls BIOS) */
+#ifdef CONFIG_PM_RAMROOT_DEMO
+    /* Let the post-transition data probe classify even forced masking. */
+    enable_a20_gate();
+#else
     if (!enable_a20_gate())
         printk("A20 fail ");
+#endif
 
 #ifdef CONFIG_PM_RAMROOT_DEMO
     /* A20 BIOS code may return with IF set, before the BIOS-vector PIC has

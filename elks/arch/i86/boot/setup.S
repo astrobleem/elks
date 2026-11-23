@@ -698,6 +698,13 @@ data_reloc:
 //	call putc
 
 
+#ifdef CONFIG_PM_RAMROOT_DEMO
+	// ELKS and Nano-X cannot invoke the VGA BIOS after PE.
+	push %bp
+	mov $0x0012,%ax
+	int $0x10
+	pop %bp
+#endif
 // Load registers as kernel expects
 
 	mov -22(%bp),%ax   // kernel .data segment

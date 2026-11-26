@@ -62,7 +62,9 @@ static unsigned char plane1[80];
 static unsigned char plane2[80];
 static unsigned char plane3[80];
 
-#if     defined(__ia16__) || defined(__C86__)
+#if     defined(__ia16__)
+#define MEMCPY(dstoff, src, n)  fdstmemcpy(dstoff, paint_video_seg, src, n)
+#elif   defined(__C86__)
 #define MEMCPY(dstoff, src, n)  fdstmemcpy(dstoff, EGA_BASE, src, n)
 #elif   defined(__WATCOMC__)
 #define MEMCPY(dstoff, src, n)  fmemcpy(MK_FP(EGA_BASE, dstoff), src, n);

@@ -99,7 +99,7 @@ extern button_t paletteButtons[PALETTE_BUTTONS_COUNT];
 // -------------------------------
 // Initializes the program
 // -------------------------------
-void A_InitTomentPainter(void);
+int A_InitTomentPainter(void);
 
 // -------------------------------
 // Initializes the palette (right toolbar)

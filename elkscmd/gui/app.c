@@ -37,14 +37,18 @@ button_t paletteButtons[PALETTE_BUTTONS_COUNT];
 // --------------------------------------------
 // Initializes the program
 // --------------------------------------------
-void A_InitTomentPainter(void)
+int A_InitTomentPainter(void)
 {
     if (event_open() < 0) {
         __dprintf("Can't init events/mouse\n");
-        return;
+        return -1;
     }
-    int EGA = (int)getenv("EGAMODE");
-    graphics_open(EGA? VGA_640x350x16: VGA_640x480x16);
+    if (graphics_open(getenv("EGAMODE") ? VGA_640x350x16 : VGA_640x480x16)) {
+        event_close();
+        return -1;
+    }
+    posx = SCREENWIDTH / 2;
+    posy = SCREENHEIGHT / 2;
 
     DrawingApp.quit = false;
 
@@ -57,6 +61,7 @@ void A_InitTomentPainter(void)
     AltFinalize = false;
 
     A_InitPalette();
+    return 0;
 }
 
 
@@ -247,7 +252,7 @@ void A_GameLoop(void)
 int main(int argc, char* argv[])
 {
     // Check if one filename was provided
-    if (argc > 2 || strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
+    if (argc > 2 || (argc > 1 && (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0))) {
         printf("Usage: %s <bmp_filename>\n", argv[0]);
         return 1;
     }
@@ -260,13 +265,13 @@ int main(int argc, char* argv[])
             return 1;
         }
         // Init Application
-        A_InitTomentPainter();
+        if (A_InitTomentPainter()) return 1;
         // Load the BMP file
         draw_bmp(filename, 0, 0);
     }
     else {
         // Init Application
-        A_InitTomentPainter();
+        if (A_InitTomentPainter()) return 1;
     }
 
 #if BENCHMARK_PAINT
@@ -288,8 +293,10 @@ int main(int argc, char* argv[])
     int maxCap = R_FrontFill(x, y, 5, readpixel(x, y));
     __dprintf("Peak stack size: %d\n", maxCap);
 
-    graphics_close();
-    return 0;
+    int rc = graphics_close();
+    event_close();
+    if (rc) fputs("Paint: VGA restore readback failed.\n", stderr);
+    return rc ? 2 : 0;
 #endif
 
     // Draw Palette
@@ -304,9 +311,10 @@ int main(int argc, char* argv[])
     while(DrawingApp.quit == false)
     {
         I_HandleInput();
-
-        A_GameLoop();
+        if (!DrawingApp.quit) A_GameLoop();
     }
-    graphics_close();
-    return 0;
+    int rc = graphics_close();
+    event_close();
+    if (rc) fputs("Paint: VGA restore readback failed.\n", stderr);
+    return rc ? 2 : 0;
 }

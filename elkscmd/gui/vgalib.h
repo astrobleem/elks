@@ -42,6 +42,8 @@
 
 #ifdef __ia16__
 
+extern unsigned paint_video_seg;
+
 #define set_color(color)                        \
     asm volatile (                              \
         "out %%ax,%%dx\n"                       \
@@ -127,7 +129,7 @@
         "or %%al,(%%bx)\n"                      \
         "mov %%dx,%%ds\n"                       \
         : /* no output */                       \
-        : "a" (0xa000)                          \
+        : "a" (paint_video_seg)                          \
         , "b" ((unsigned short)(offset))        \
         : "d","dl","dh"                         \
         )
@@ -142,7 +144,7 @@
         "xor %%ah,%%ah\n"                       \
         "mov %%dx,%%ds\n"                       \
         : "=a" (_v)                             \
-        : "a" (0xa000)                          \
+        : "a" (paint_video_seg)                          \
         , "b" ((unsigned short)(offset))        \
         : "d","dl","dh"                         \
         );                                      \

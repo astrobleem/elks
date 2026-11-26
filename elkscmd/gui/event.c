@@ -14,9 +14,9 @@
 #include <termios.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <string.h>
 
-int SCREENWIDTH = 640;              /* for mouse clipping, set in graphics_open */
-int SCREENHEIGHT = 480;
+#include "graphics.h"
 extern int mouse_fd;
 #define SCROLLFACTOR        4       /* multiply factor for scrollwheel */
 
@@ -45,10 +45,10 @@ int event_wait_timeout(struct event *e, int timeout)
     for (;;)
     {
         FD_ZERO(&fdset);
-        FD_SET(mouse_fd, &fdset);
+        if (mouse_fd >= 0) FD_SET(mouse_fd, &fdset);
         FD_SET(0, &fdset);
 
-        ret = select(mouse_fd + 1, &fdset, NULL, NULL, tv);
+        ret = select(mouse_fd >= 0 ? mouse_fd + 1 : 1, &fdset, NULL, NULL, tv);
         if (ret == 0)
         {
             event->type = EVT_TIMEOUT;
@@ -69,14 +69,14 @@ int event_wait_timeout(struct event *e, int timeout)
                 {
 quit:
                     event->type = EVT_QUIT;
-                    return 0;
+                    return 1;
                 }
                 event->keychar = buf[0];
                 event->type = EVT_KEYCHAR;
                 goto out;
             }
         }
-        if (FD_ISSET(mouse_fd, &fdset))
+        if (mouse_fd >= 0 && FD_ISSET(mouse_fd, &fdset))
         {
             int x, y, w, b;
             static int lastx = -1, lasty = -1, lastb = 0;
@@ -160,7 +160,8 @@ int event_poll(struct event *event)
 
 int event_open(void)
 {
-    if (open_mouse() < 0)
+    const char *port = getenv("MOUSE_PORT");
+    if ((!port || strcmp(port, "none") != 0) && open_mouse() < 0)
         return -1;
     open_keyboard();
     posx = SCREENWIDTH / 2;

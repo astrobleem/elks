@@ -17,6 +17,7 @@
 //
         .code16
         .text
+        .extern paint_video_seg
 #define BYTESPERLN  80                // number of bytes in scan line (640/8)
 #define arg1        4                 // small model
 
@@ -86,7 +87,7 @@ vga_drawpixel:
         out     %ax, %dx
 
         mov     %ds, %cx
-        mov     $0xA000, %ax    // DS := EGA buffer segment address
+        mov     paint_video_seg, %ax    // DS := EGA buffer segment address
         mov     %ax, %ds
         or      %al,(%bx)       // quick rmw to set pixel
         mov     %cx, %ds        // restore registers and return
@@ -158,7 +159,7 @@ vga_drawhline:
         and     $7, %cl         // CL := [col & 7]
         xor     $7, %cl         // CL := 7 - [col & 7]
         mov     $1, %ah         // AH := 1 << [7 - [col & 7]]    [mask]
-        mov     $0xA000, %dx    // ES := EGA buffer segment address
+        mov     paint_video_seg, %dx    // ES := EGA buffer segment address
         mov     %dx, %es        // ES:BX -> video buffer
                                 // AH := bit mask
                                 // CL := number bits to shift left
@@ -295,7 +296,7 @@ vga_drawvline:
         and     $7, %cl         // CL := [col & 7]
         xor     $7, %cl         // CL := 7 - [col & 7]
         mov     $1, %ah         // AH := 1 << [7 - [col & 7]]    [mask]
-        mov     $0x0A000, %dx   // DS := EGA buffer segment address
+        mov     paint_video_seg, %dx   // DS := EGA buffer segment address
         mov     %dx ,%ds        // DS:BX -> video buffer
                                 // AH := bit mask
                                 // CL := number bits to shift left
@@ -348,7 +349,7 @@ vga_readpixel:
         and     $7, %cl         // CL := [x & 7]
         xor     $7, %cl         // CL := 7 - [x & 7]
 
-        mov     $0xA000, %dx    // DS := EGA buffer segment address
+        mov     paint_video_seg, %dx    // DS := EGA buffer segment address
         mov     %dx, %ds
 
         mov     $1, %ch         // CH := 1 << [7 - [col & 7]]

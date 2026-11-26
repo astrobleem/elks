@@ -13,7 +13,7 @@ extern int SCREENHEIGHT;
 
 /* start/stop graphics mode */
 int graphics_open(int mode);
-void graphics_close(void);
+int graphics_close(void);
 int draw_bmp(char *path, int x, int y);
 int save_bmp(char *pathname);
 

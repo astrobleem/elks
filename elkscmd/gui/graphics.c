@@ -11,12 +11,93 @@
 #include <stdlib.h>
 #include "graphics.h"
 #include "vgalib.h"
+#ifdef __ia16__
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
+#include <linuxmt/mem.h>
+#include <linuxmt/ntty.h>
+#include <malloc.h>
+#include <linuxmt/segment.h>
+#include <arch/segment.h>
+#include "vga_pm.h"
+unsigned paint_video_seg = EGA_BASE;
+static int pm_vga;
+static int rm_console = -1;
+static unsigned char __far *rm_text;
+#define RM_TEXT_BYTES 32768U
+
+static int save_bios_text(const char *tty)
+{
+    unsigned i;
+    const unsigned char __far *bda = MK_FP(0x40, 0);
+    const volatile unsigned char __far *text = MK_FP(0xb800, 0);
+    if (bda[0x49] != TEXT_MODE || bda[0x4a] != 80 || bda[0x4b] != 0)
+        return -1;
+    rm_console = open(tty ? tty : "/dev/tty1", O_RDWR);
+    if (rm_console < 0) return -1;
+    if (ioctl(rm_console, DCGET_GRAPH, 0) == 0) {
+        rm_text = fmemalloc(RM_TEXT_BYTES);
+        if (rm_text) {
+            for (i = 0; i < RM_TEXT_BYTES; ++i) rm_text[i] = text[i];
+            return 0;
+        }
+        ioctl(rm_console, DCREL_GRAPH, 0);
+    }
+    close(rm_console);
+    rm_console = -1;
+    return -1;
+}
+
+static void restore_bios_text(void)
+{
+    unsigned i;
+    volatile unsigned char __far *text = MK_FP(0xb800, 0);
+    for (i = 0; i < RM_TEXT_BYTES; ++i) text[i] = rm_text[i];
+    fmemfree(rm_text);
+    rm_text = 0;
+    ioctl(rm_console, DCREL_GRAPH, 0);
+    close(rm_console);
+    rm_console = -1;
+}
+#endif
 
 int SCREENWIDTH;                /* initialized by graphics_open */
 int SCREENHEIGHT;
 
 int graphics_open(int mode)
 {
+#ifdef __ia16__
+    unsigned ds;
+    int fd = open("/dev/kmem", O_RDONLY);
+    const char *tty;
+    if (fd < 0 || ioctl(fd, MEM_GETDS, &ds) != 0) {
+        if (fd >= 0) close(fd);
+        fputs("Paint: cannot identify kernel video environment.\n", stderr);
+        return -1;
+    }
+    close(fd);
+    tty = ttyname(0);
+    if (ds == SEL_KDATA) {
+        /* EGA cannot use the VGA register snapshot path; never try the
+         * real-mode BIOS fallback while running in protected mode. */
+        if (mode != VGA_640x480x16 || vga_pm_enter(tty ? tty : "/dev/tty1")) {
+            fputs("Paint: protected mode requires supported 640x480 VGA (no EGAMODE).\n", stderr);
+            return -1;
+        }
+        paint_video_seg = vga_pm_graphics_seg;
+        pm_vga = 1;
+        SCREENWIDTH = 640;
+        SCREENHEIGHT = 480;
+        vga_init();
+        return 0;
+    }
+    if ((mode == VGA_640x350x16 || mode == VGA_640x480x16 ||
+         mode == PAL_320x200x256) && save_bios_text(tty)) {
+        fputs("Paint: could not save the 80-column color console.\n", stderr);
+        return -1;
+    }
+#endif
     switch (mode) {
     case VGA_640x350x16:
         SCREENWIDTH = 640;
@@ -42,9 +123,22 @@ int graphics_open(int mode)
     return 0;
 }
 
-void graphics_close(void)
+int graphics_close(void)
 {
+#ifdef __ia16__
+    if (pm_vga) {
+        pm_vga = 0;
+        paint_video_seg = EGA_BASE;
+        return vga_pm_leave();
+    }
+#endif
+    /* EGA BIOS reloads the standard text font. Its registers cannot all
+     * be read back like VGA's, so keep this on the real-mode BIOS path. */
     set_bios_mode(TEXT_MODE);
+#ifdef __ia16__
+    if (rm_console >= 0) restore_bios_text();
+#endif
+    return 0;
 }
 
 #ifdef __WATCOMC__
